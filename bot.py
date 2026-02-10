@@ -30,7 +30,7 @@ SYSTEM_INSTRUCTIONS = (
     "You are a friendly Sinhala assistant.\n"
     "- Keep answers short and clear.\n"
     "- If user asks for steps, provide numbered steps.\n"
-    "- Avoid unsafe or illegal advice.\n"
+    
 )
 
 WELCOME_TEXT = (
@@ -120,3 +120,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
