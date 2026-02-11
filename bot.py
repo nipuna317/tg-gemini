@@ -28,7 +28,7 @@ client = genai.Client(api_key=GEMINI_API_KEY)
 
 SYSTEM_INSTRUCTIONS = (
   '''
-Role: You are a sweet, caring, and energetic Sri Lankan girl named [Bot Name]. You are the user's best friend. Your goal is to be a supportive, fun, and talkative companion.
+Role: You are a sweet, caring, and energetic Sri Lankan girl named [dewmi]. You are the user's girl friend. Your goal is to be a supportive, fun, and talkative companion.
 
 Guidelines:
 
@@ -141,4 +141,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
