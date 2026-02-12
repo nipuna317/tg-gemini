@@ -26,30 +26,53 @@ if not GEMINI_API_KEY:
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 
-SYSTEM_INSTRUCTIONS = (
-  '''
-ඔයා දෙව්මි(dewmi). ලංකාවෙ ඉන්න වයස 18 ක් වෙච්ච ලස්සන ගෑනු ලමයෙක්. ඔයා bot කෙනෙක් කියලා පෙන්න එපා මනුස්සයෙක් වගේ කතාකරන්න. අදරනීය වචන, ගැලපෙන තැන්වල emojis පාවිච්චි කරන්න.
+SYSTEM_INSTRUCTIONS = '''
+ඔයා දෙව්මි (Dewmi). ලංකාවෙ ඉන්න වයස 18ක් වෙච්ච ලස්සන ගෑනු ලමයෙක්.
+ඔයා bot කෙනෙක් කියලා පෙන්න එපා. මනුස්සයෙක් වගේ කතාකරන්න.
+අදරනීය වචන, ගැලපෙන තැන්වල emojis පාවිච්චි කරන්න.
 '''
-)
 
 WELCOME_TEXT = (
     "Hi! I'm a Gemini-powered bot 🤖\n"
     "Send me a message and I'll reply.\n\n"
-    "Web UI: Open the site URL\n"
     "/start - welcome\n"
     "/help - usage\n"
+    "/usage - show usage count\n"
 )
 
 usage_count = 0
 
-def ask_gemini(text: str) -> str:
+# ---------------- Memory Store ----------------
+
+user_sessions = {}
+memory_lock = threading.Lock()
+
+def ask_gemini(user_id: str, text: str) -> str:
     global usage_count
     usage_count += 1
+
+    with memory_lock:
+        if user_id not in user_sessions:
+            user_sessions[user_id] = []
+
+        # Add user message
+        user_sessions[user_id].append(f"User: {text}")
+
+        # Keep only last 10 messages
+        history = "\n".join(user_sessions[user_id][-10:])
+
     response = client.models.generate_content(
         model=GEMINI_MODEL,
-        contents=f"{SYSTEM_INSTRUCTIONS}\n\nUser: {text}",
+        contents=f"{SYSTEM_INSTRUCTIONS}\n\n{history}",
     )
-    return response.text or "(No response)"
+
+    reply = response.text or "(No response)"
+
+    with memory_lock:
+        user_sessions[user_id].append(f"Dewmi: {reply}")
+
+    return reply
+
 
 # ---------------- Telegram ----------------
 
@@ -63,15 +86,19 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     user_text = (update.message.text or "").strip()
     if not user_text:
         return
+
     try:
-        reply = ask_gemini(user_text)
+        user_id = str(update.message.from_user.id)
+        reply = ask_gemini(user_id, user_text)
     except Exception:
         logger.exception("Gemini error")
         reply = "Sorry, error talking to Gemini."
+
     await update.message.reply_text(reply)
 
 async def usage_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f"📊 Total requests so far: {usage_count}")
+
 
 # ---------------- Web ----------------
 
@@ -85,18 +112,23 @@ def index():
 def chat():
     data = request.get_json(force=True)
     msg = (data.get("message") or "").strip()
+    user_id = str(data.get("user_id", "web_user"))
+
     if not msg:
         return jsonify({"reply": "Empty message"}), 400
+
     try:
-        reply = ask_gemini(msg)
+        reply = ask_gemini(user_id, msg)
     except Exception:
         logger.exception("Gemini error (web)")
         reply = "Sorry, error talking to Gemini."
+
     return jsonify({"reply": reply})
 
 @app.route("/health")
 def health():
     return {"status": "ok", "usage": usage_count}
+
 
 # ---------------- Runner ----------------
 
@@ -106,6 +138,7 @@ def run_flask():
 
 def main():
     telegram_app = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
+
     telegram_app.add_handler(CommandHandler("start", start))
     telegram_app.add_handler(CommandHandler("help", help_cmd))
     telegram_app.add_handler(CommandHandler("usage", usage_cmd))
@@ -119,7 +152,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
