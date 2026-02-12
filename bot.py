@@ -59,7 +59,7 @@ def ask_gemini(user_id: str, text: str) -> str:
         user_sessions[user_id].append(f"User: {text}")
 
         # Keep only last 10 messages
-        history = "\n".join(user_sessions[user_id][-10:])
+        history = "\n".join(user_sessions[user_id][-5:])
 
     response = client.models.generate_content(
         model=GEMINI_MODEL,
@@ -152,3 +152,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
